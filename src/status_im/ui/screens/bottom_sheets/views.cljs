@@ -33,18 +33,6 @@
           (= view :learn-more)
           (merge about-app/learn-more)
 
-          (= view :create-community)
-          (merge communities/create-sheet)
-
-          (= view :import-community)
-          (merge communities/import-sheet)
-
-          (= view :create-community-channel)
-          (merge communities/create-channel-sheet)
-
-          (= view :invite-people-community)
-          (merge communities/invite-people-sheet)
-
           (= view :recover-sheet)
           (merge recover.views/bottom-sheet))]
     [quo/bottom-sheet opts
