@@ -210,35 +210,21 @@
   [{:keys [db]} dimensions]
   {:db (assoc db :dimensions/window (dimensions/window dimensions))})
 
-(fx/defn reset-current-profile-chat [{:keys [db] :as cofx} public-key]
-  (let [chat-id (chat/profile-chat-topic public-key)]
-    (when-not (= (:current-chat-id db) chat-id)
-      (fx/merge cofx
-                (chat/start-profile-chat public-key)
-                (chat/offload-all-messages)
-                (chat/preload-chat-data chat-id)))))
+(fx/defn init-timeline-chat
+   {:events [:init-timeline-chat]}
+   [{:keys [db] :as cofx}]
+   (when-let [profile-chats (conj (map :public-key (contact.db/get-active-contacts (:contacts/contacts db)))
+                                  (get-in db [:multiaccount :public-key]))]
+       (fx/merge cofx
+                   (fn [cofx])
+                   (apply fx/merge cofx (map chat/start-profile-chat profile-chats))
+                   (chat/start-timeline-chat)
+                   ;;(chat/offload-all-messages)
+                   (chat/preload-chat-data constants/timeline-chat-id))))
 
-(fx/defn reset-current-timeline-chat [{:keys [db] :as cofx}]
-  (let [profile-chats (conj (map :public-key (contact.db/get-active-contacts (:contacts/contacts db)))
-                            (get-in db [:multiaccount :public-key]))]
-    (when-not (= (:current-chat-id db) chat/timeline-chat-id)
-      (fx/merge cofx
-                (fn [cofx]
-                  (apply fx/merge cofx (map chat/start-profile-chat profile-chats)))
-                (chat/start-timeline-chat)
-                (chat/offload-all-messages)
-                (chat/preload-chat-data chat/timeline-chat-id)))))
-
-(fx/defn reset-current-chat [{:keys [db] :as cofx} chat-id]
-  (when-not (= (:current-chat-id db) chat-id)
-    (fx/merge cofx
-              (chat/offload-all-messages)
-              (chat/preload-chat-data chat-id))))
-
-;; NOTE: Will be removed with the keycard PR
 (fx/defn on-will-focus
   {:events [:screens/on-will-focus]}
-  [{:keys [db] :as cofx} view-id]
+  [cofx view-id]
   (fx/merge cofx
             #(case view-id
                :keycard-settings (keycard/settings-screen-did-load %)
@@ -247,30 +233,8 @@
                :keycard-login-pin (keycard/enter-pin-screen-did-load %)
                :add-new-account-pin (keycard/enter-pin-screen-did-load %)
                :keycard-authentication-method (keycard/authentication-method-screen-did-load %)
-               (:chat :group-chat-profile) (reset-current-chat % (get db :inactive-chat-id))
                :multiaccounts (keycard/multiaccounts-screen-did-load %)
                (:wallet-stack :wallet) (wallet/wallet-will-focus %)
-               (:status :status-stack)
-               (reset-current-timeline-chat %)
-               :profile
-               (reset-current-profile-chat % (get-in % [:db :contacts/identity]))
-               nil)))
-
-(fx/defn tab-will-change
-  {:events [:screens/tab-will-change]}
-  [{:keys [db] :as cofx} view-id]
-  (fx/merge cofx
-            #(case view-id
-               ;;when we back to chat we want to show inactive chat
-               :chat
-               (reset-current-chat % (get db :inactive-chat-id))
-
-               (:status :status-stack)
-               (reset-current-timeline-chat %)
-
-               :profile
-               (reset-current-profile-chat % (get-in % [:db :contacts/identity]))
-
                nil)))
 
 ;;TODO :replace by named events

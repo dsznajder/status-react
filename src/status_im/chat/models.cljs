@@ -243,8 +243,7 @@
               (navigation/navigate-to-cofx :home {}))))
 
 (fx/defn offload-all-messages
-  {:events [::offload-all-messages]}
-  [{:keys [db] :as cofx}]
+  [{:keys [db]}]
   (when-let [current-chat-id (:current-chat-id db)]
     {:db
      (-> db
@@ -256,24 +255,17 @@
 (fx/defn preload-chat-data
   "Takes chat-id and coeffects map, returns effects necessary when navigating to chat"
   [{:keys [db] :as cofx} chat-id]
-  (let [old-current-chat-id (:current-chat-id db)]
-    (fx/merge cofx
-              {:dispatch [:load-messages]}
-              (when-not (= old-current-chat-id chat-id)
-                (offload-all-messages))
-              (fn [{:keys [db]}]
-                {:db (assoc db :current-chat-id chat-id)})
-              ;; Group chat don't need this to load as all the loading of topics
-              ;; happens on membership changes
-              (when-not (or (group-chat? cofx chat-id) (timeline-chat? cofx chat-id))
-                (transport.filters/load-chat chat-id)))))
+  (fx/merge cofx
+            {:dispatch [:load-messages chat-id]}
+            (when-not (or (group-chat? cofx chat-id) (timeline-chat? cofx chat-id))
+              (transport.filters/load-chat chat-id))))
 
 (fx/defn navigate-to-chat
   "Takes coeffects map and chat-id, returns effects necessary for navigation and preloading data"
   {:events [:chat.ui/navigate-to-chat]}
   [{db :db :as cofx} chat-id]
   (fx/merge cofx
-            {:db (assoc db :inactive-chat-id chat-id)}
+            {:db (assoc db :current-chat-id chat-id)}
             (preload-chat-data chat-id)
             (navigation/navigate-to-cofx :chat-stack {:screen :chat})))
 
@@ -289,8 +281,6 @@
                            nil)
               (transport.filters/load-chat chat-id)
               (navigate-to-chat chat-id))))
-
-(def timeline-chat-id "@timeline70bd746ddcc12beb96b2c9d572d0784ab137ffc774f5383e50585a932080b57cca0484b259e61cecbaa33a4c98a300a")
 
 (defn profile-chat-topic [public-key]
   (str "@" public-key))
@@ -324,8 +314,8 @@
 (fx/defn start-timeline-chat
   "Starts a new timeline chat"
   [cofx]
-  (when-not (active-chat? cofx timeline-chat-id)
-    (add-public-chat cofx timeline-chat-id nil true)))
+  (when-not (active-chat? cofx constants/timeline-chat-id)
+    (add-public-chat cofx constants/timeline-chat-id nil true)))
 
 (fx/defn disable-chat-cooldown
   "Turns off chat cooldown (protection against message spamming)"
@@ -350,6 +340,7 @@
       (fx/merge
        cofx
        {:db (assoc db :contacts/identity identity)}
+       (preload-chat-data (profile-chat-topic identity))
        (navigation/navigate-to-cofx :profile nil)))))
 
 (fx/defn mute-chat-failed

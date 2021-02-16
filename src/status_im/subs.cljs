@@ -39,7 +39,8 @@
             [status-im.chat.models.mentions :as mentions]
             [status-im.notifications.core :as notifications]
             [status-im.utils.currency :as currency]
-            [clojure.set :as clojure.set]))
+            [clojure.set :as clojure.set]
+            [status-im.chat.models :as chat]))
 
 ;; TOP LEVEL ===========================================================================================================
 
@@ -757,13 +758,11 @@
  :chats/current-chat
  :<- [:chats/current-raw-chat]
  :<- [:multiaccount/public-key]
- :<- [:inactive-chat-id]
  :<- [:communities/current-community]
  (fn [[{:keys [group-chat] :as current-chat}
        my-public-key
-       inactive-chat-id
        community]]
-   (when (and current-chat (= (:chat-id current-chat) inactive-chat-id))
+   (when current-chat
      (cond-> current-chat
        (chat.models/public-chat? current-chat)
        (assoc :show-input? true)
@@ -809,27 +808,24 @@
    (chat.models/public-chat? current-chat)))
 
 (re-frame/reg-sub
- :chats/current-chat-messages
+ :chats/chat-messages
  :<- [::messages]
- :<- [:chats/current-chat-id]
- (fn [[messages chat-id]]
+ (fn [messages [_ chat-id]]
    (get messages chat-id {})))
 
 (re-frame/reg-sub
  :chats/message-reactions
  :<- [:multiaccount/public-key]
  :<- [::reactions]
- :<- [:chats/current-chat-id]
- (fn [[current-public-key reactions current-chat-id] [_ message-id chat-id]]
+ (fn [[current-public-key reactions] [_ message-id chat-id]]
    (models.reactions/message-reactions
     current-public-key
-    (get-in reactions [(or chat-id current-chat-id) message-id]))))
+    (get-in reactions [chat-id message-id]))))
 
 (re-frame/reg-sub
  :chats/messages-gaps
  :<- [:mailserver/gaps]
- :<- [:chats/current-chat-id]
- (fn [[gaps chat-id]]
+ (fn [gaps [_ chat-id]]
    (sort-by :from (vals (get gaps chat-id)))))
 
 (re-frame/reg-sub
@@ -841,8 +837,7 @@
 (re-frame/reg-sub
  :chats/range
  :<- [:mailserver/ranges]
- :<- [:chats/current-chat-id]
- (fn [[ranges chat-id]]
+ (fn [ranges [_ chat-id]]
    (get ranges chat-id)))
 
 (re-frame/reg-sub
@@ -856,21 +851,19 @@
 (re-frame/reg-sub
  :chats/all-loaded?
  :<- [::pagination-info]
- :<- [:chats/current-chat-id]
- (fn [[pagination-info chat-id]]
+ (fn [pagination-info [_ chat-id]]
    (get-in pagination-info [chat-id :all-loaded?])))
 
 (re-frame/reg-sub
  :chats/public?
- :<- [:chats/current-raw-chat]
- (fn [chat]
-   (:public? chat)))
+ :<- [::chats]
+ (fn [chats [_ chat-id]]
+   (get-in chats [chat-id :public?])))
 
 (re-frame/reg-sub
  :chats/message-list
  :<- [::message-lists]
- :<- [:chats/current-chat-id]
- (fn [[message-lists chat-id]]
+ (fn [message-lists [_ chat-id]]
    (get message-lists chat-id)))
 
 (defn hydrate-messages
@@ -883,19 +876,21 @@
         message-list))
 
 (re-frame/reg-sub
- :chats/current-chat-no-messages?
- :<- [:chats/current-chat-messages]
+ :chats/chat-no-messages?
+ (fn [[_ chat-id] _]
+   (re-frame/subscribe [:chats/chat-messages chat-id]))
  (fn [messages]
    (empty? messages)))
 
 (re-frame/reg-sub
- :chats/current-chat-messages-stream
- :<- [:chats/message-list]
- :<- [:chats/current-chat-messages]
- :<- [:chats/messages-gaps]
- :<- [:chats/range]
- :<- [:chats/all-loaded?]
- :<- [:chats/public?]
+ :chats/chat-messages-stream
+ (fn [[_ chat-id] _]
+   [(re-frame/subscribe [:chats/message-list chat-id])
+    (re-frame/subscribe [:chats/chat-messages chat-id])
+    (re-frame/subscribe [:chats/messages-gaps chat-id])
+    (re-frame/subscribe [:chats/range chat-id])
+    (re-frame/subscribe [:chats/all-loaded? chat-id])
+    (re-frame/subscribe [:chats/public? chat-id])])
  (fn [[message-list messages messages-gaps range all-loaded? public?]]
    ;;TODO (perf) we need to move all these to status-go
    (-> (models.message-list/->seq message-list)
@@ -905,13 +900,17 @@
 
 (re-frame/reg-sub
  :chats/timeline-messages-stream
- :<- [:chats/message-list]
- :<- [:chats/current-chat-messages]
- :<- [:chats/current-raw-chat]
- (fn [[message-list messages {:keys [timeline?]}]]
-   (when timeline?
-     (-> (models.message-list/->seq message-list)
-         (hydrate-messages messages)))))
+ :<- [:chats/message-list constants/timeline-chat-id]
+ :<- [:chats/chat-messages constants/timeline-chat-id]
+ (fn [[message-list messages]]
+   (-> (models.message-list/->seq message-list)
+       (hydrate-messages messages))))
+
+(re-frame/reg-sub
+ :chats/current-profile-chat
+ :<- [:contacts/current-contact-identity]
+ (fn [identity]
+   (chat/profile-chat-topic identity)))
 
 (re-frame/reg-sub
  :chats/photo-path

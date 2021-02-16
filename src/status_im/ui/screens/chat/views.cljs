@@ -174,9 +174,9 @@
 (defn messages-view
   [{:keys [chat bottom-space pan-responder space-keeper]}]
   (let [{:keys [group-chat chat-id chat-type public? invitation-admin]} chat
-
-        messages           @(re-frame/subscribe [:chats/current-chat-messages-stream])
-        no-messages?       @(re-frame/subscribe [:chats/current-chat-no-messages?])
+        current-chat-id    @(re-frame/subscribe [:chats/current-chat-id])
+        messages           @(re-frame/subscribe [:chats/chat-messages-stream current-chat-id])
+        no-messages?       @(re-frame/subscribe [:chats/chat-no-messages? current-chat-id])
         current-public-key @(re-frame/subscribe [:multiaccount/public-key])]
     [list/flat-list
      (merge
@@ -199,8 +199,8 @@
                                       :current-public-key current-public-key
                                       :space-keeper       space-keeper}
        :render-fn                    render-fn
-       :on-viewable-items-changed    on-viewable-items-changed
-       :on-end-reached               #(re-frame/dispatch [:chat.ui/load-more-messages])
+       ;:on-viewable-items-changed    on-viewable-items-changed
+       :on-end-reached               #(re-frame/dispatch [:chat.ui/load-more-messages current-chat-id])
        :on-scroll-to-index-failed    #() ;;don't remove this
        :content-container-style      {:padding-top    (+ bottom-space 16)
                                       :padding-bottom 16}
@@ -293,37 +293,36 @@
     (fn []
       (let [{:keys [chat-id show-input? group-chat admins invitation-admin] :as current-chat}
             @(re-frame/subscribe [:chats/current-chat])]
-        (when current-chat
-          [react/view {:style {:flex 1}}
-           [connectivity/loading-indicator]
-           [topbar]
-           [react/view {:style {:flex 1}}
-            (if group-chat
-              [invitation-requests chat-id admins]
-              [add-contact-bar chat-id])
-            [messages-view {:chat          current-chat
-                            :bottom-space  (max @bottom-space @panel-space)
-                            :pan-responder pan-responder
-                            :space-keeper  space-keeper}]]
-           (when (and group-chat invitation-admin)
-             [accessory/view {:y               position-y
-                              :on-update-inset on-update}
-              [invitation-bar chat-id]])
-           ;; NOTE(rasom): on android we have to place `autocomplete-mentions`
-           ;; outside `accessory/view` because otherwise :keyboardShouldPersistTaps
-           ;; :always doesn't work and keyboard is hidden on pressing suggestion.
-           ;; Scrolling of suggestions doesn't work neither in this case.
-           (when platform/android?
-             [components/autocomplete-mentions text-input-ref])
-           (when show-input?
-             [accessory/view {:y               position-y
-                              :pan-state       pan-state
-                              :has-panel       (boolean @active-panel)
-                              :on-close        #(set-active-panel nil)
-                              :on-update-inset on-update}
-              [components/chat-toolbar
-               {:active-panel             @active-panel
-                :set-active-panel         set-active-panel
-                :text-input-ref           text-input-ref
-                :on-text-change           on-text-change}]
-              [bottom-sheet @active-panel]])])))))
+        [react/view {:style {:flex 1}}
+         [connectivity/loading-indicator]
+         [topbar]
+         [react/view {:style {:flex 1}}
+          (if group-chat
+            [invitation-requests chat-id admins]
+            [add-contact-bar chat-id])
+          [messages-view {:chat          current-chat
+                          :bottom-space  (max @bottom-space @panel-space)
+                          :pan-responder pan-responder
+                          :space-keeper  space-keeper}]]
+         (when (and group-chat invitation-admin)
+           [accessory/view {:y               position-y
+                            :on-update-inset on-update}
+            [invitation-bar chat-id]])
+         ;; NOTE(rasom): on android we have to place `autocomplete-mentions`
+         ;; outside `accessory/view` because otherwise :keyboardShouldPersistTaps
+         ;; :always doesn't work and keyboard is hidden on pressing suggestion.
+         ;; Scrolling of suggestions doesn't work neither in this case.
+         (when platform/android?
+           [components/autocomplete-mentions text-input-ref])
+         (when show-input?
+           [accessory/view {:y               position-y
+                            :pan-state       pan-state
+                            :has-panel       (boolean @active-panel)
+                            :on-close        #(set-active-panel nil)
+                            :on-update-inset on-update}
+            [components/chat-toolbar
+             {:active-panel             @active-panel
+              :set-active-panel         set-active-panel
+              :text-input-ref           text-input-ref
+              :on-text-change           on-text-change}]
+            [bottom-sheet @active-panel]])]))))

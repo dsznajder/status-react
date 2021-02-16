@@ -152,7 +152,7 @@
          [reactions/with-reaction-picker
           {:message         message
            :timeline        true
-           :reactions       @(re-frame/subscribe [:chats/message-reactions (:message-id message)])
+           :reactions       @(re-frame/subscribe [:chats/message-reactions (:message-id message) constants/timeline-chat-id])
            :picker-on-open  (fn [])
            :picker-on-close (fn [])
            :send-emoji      (fn [{:keys [emoji-id]}]
@@ -182,11 +182,9 @@
 
 (defn timeline []
   (let [messages @(re-frame/subscribe [:chats/timeline-messages-stream])
-        no-messages? @(re-frame/subscribe [:chats/current-chat-no-messages?])
+        no-messages? @(re-frame/subscribe [:chats/chat-no-messages? constants/timeline-chat-id])
         account @(re-frame/subscribe [:multiaccount])]
     [react/view {:flex 1}
-     ;;TODO implement in the next iteration
-     #_[tabs]
      [react/view {:height           1
                   :background-color colors/gray-lighter}]
      (if no-messages?
@@ -208,8 +206,8 @@
                                      :account  account}
          :render-fn                 render-message
          :data                      messages
-         :on-viewable-items-changed chat.views/on-viewable-items-changed
-         :on-end-reached            #(re-frame/dispatch [:chat.ui/load-more-messages])
+         ;:on-viewable-items-changed chat.views/on-viewable-items-changed
+         :on-end-reached            #(re-frame/dispatch [:chat.ui/load-more-messages constants/timeline-chat-id])
          ;;don't remove :on-scroll-to-index-failed
          :on-scroll-to-index-failed #()
          :header                    [react/view {:height 8}]

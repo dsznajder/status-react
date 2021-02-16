@@ -149,7 +149,7 @@
   (fx/merge cofx
             ;;If its a profile updates we want to add this message to the timeline as well
             #(when (get-in cofx [:db :chats chat-id :profile-public-key])
-               {:dispatch-n [[::receive-one (assoc message :chat-id chat-model/timeline-chat-id)]]})
+               {:dispatch-n [[::receive-one (assoc message :chat-id constants/timeline-chat-id)]]})
             #(when-not (earlier-than-deleted-at? cofx message)
                (if (message-loaded? cofx message)
                  ;; If the message is already loaded, it means it's an update, that
