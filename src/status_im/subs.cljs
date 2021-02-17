@@ -722,7 +722,7 @@
               chats)))
 
 (re-frame/reg-sub
- ::chat
+ :chat-by-id
  :<- [::chats]
  (fn [chats [_ chat-id]]
    (get chats chat-id)))
@@ -997,7 +997,7 @@
 (re-frame/reg-sub
  :group-chat/inviter-info
  (fn [[_ chat-id] _]
-   [(re-frame/subscribe [::chat chat-id])
+   [(re-frame/subscribe [:chat-by-id chat-id])
     (re-frame/subscribe [:multiaccount/public-key])])
  (fn [[chat my-public-key]]
    {:joined? (group-chats.db/joined? my-public-key chat)
@@ -1978,9 +1978,8 @@
 
 (re-frame/reg-sub
  :chats/fetching-gap-in-progress?
- :<- [:chats/current-chat-id]
  :<- [:mailserver/fetching-gaps-in-progress]
- (fn [[chat-id gaps] [_ ids]]
+ (fn [gaps [_ ids chat-id]]
    (seq (select-keys (get gaps chat-id) ids))))
 
 (re-frame/reg-sub

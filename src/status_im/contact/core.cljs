@@ -8,7 +8,8 @@
             [status-im.navigation :as navigation]
             [status-im.utils.fx :as fx]
             [taoensso.timbre :as log]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [status-im.constants :as constants]))
 
 (fx/defn load-contacts
   {:events [::contacts-loaded]}
@@ -66,6 +67,13 @@
                        :params [public-key name profile-image]
                        :on-success #(log/debug "contact request sent" public-key)}]}))
 
+(fx/defn offload-messages
+  [{:keys [db]} chat-id]
+  {:db (-> db
+           (update :messages dissoc chat-id)
+           (update :message-lists dissoc chat-id)
+           (update :pagination-info dissoc chat-id))})
+
 (fx/defn add-contact
   "Add a contact and set pending to false"
   {:events [:contact.ui/add-to-contact-pressed]
@@ -83,6 +91,7 @@
                 {:db (dissoc db :contacts/new-identity)
                  :dispatch [:start-profile-chat public-key]}
                 (upsert-contact contact)
+                (offload-messages constants/timeline-chat-id)
                 (send-contact-request contact)
                 (mailserver/process-next-messages-request)))))
 

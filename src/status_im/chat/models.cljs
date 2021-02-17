@@ -242,16 +242,6 @@
             (when (not (= (:view-id db) :home))
               (navigation/navigate-to-cofx :home {}))))
 
-(fx/defn offload-all-messages
-  [{:keys [db]}]
-  (when-let [current-chat-id (:current-chat-id db)]
-    {:db
-     (-> db
-         (dissoc :loaded-chat-id)
-         (update :messages dissoc current-chat-id)
-         (update :message-lists dissoc current-chat-id)
-         (update :pagination-info dissoc current-chat-id))}))
-
 (fx/defn preload-chat-data
   "Takes chat-id and coeffects map, returns effects necessary when navigating to chat"
   [{:keys [db] :as cofx} chat-id]
@@ -340,6 +330,7 @@
       (fx/merge
        cofx
        {:db (assoc db :contacts/identity identity)}
+       (start-profile-chat identity)
        (preload-chat-data (profile-chat-topic identity))
        (navigation/navigate-to-cofx :profile nil)))))
 

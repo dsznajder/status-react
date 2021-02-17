@@ -134,14 +134,14 @@
           [message/render-parsed-text (assoc message :outgoing false) (:parsed-text content)]])
        [link-preview/link-preview-wrapper (:links content) outgoing true]]]]))
 
-(defn render-message [{:keys [type] :as message} idx _ {:keys [timeline account]}]
+(defn render-message [{:keys [type] :as message} idx _ {:keys [timeline account chat-id]}]
   (if (= type :datemark)
     nil
     (if (= type :gap)
       (if timeline
         nil
-        [gap/gap message idx messages-list-ref true])
-      ; message content
+        [gap/gap message idx messages-list-ref true chat-id])
+      ;; for timeline for reactions we need to use :from as chat-id
       (let [chat-id (chat/profile-chat-topic (:from message))]
         [react/view (merge {:accessibility-label :chat-item}
                            (when (:last-in-group? message)

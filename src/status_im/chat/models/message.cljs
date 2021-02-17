@@ -12,7 +12,8 @@
             [status-im.utils.fx :as fx]
             [taoensso.timbre :as log]
             [status-im.chat.models.mentions :as mentions]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [status-im.contact.db :as contact.db]))
 
 (defn- prepare-message
   [message current-chat?]
@@ -81,28 +82,28 @@
 (fx/defn add-received-message
   [{:keys [db] :as cofx}
    {:keys [chat-id clock-value] :as message}]
-  (let [{:keys [loaded-chat-id view-id current-chat-id]} db
-        cursor-clock-value (get-in db [:chats current-chat-id :cursor-clock-value])
-        current-chat?      (= chat-id loaded-chat-id)]
-    (when current-chat?
-      (fx/merge
-       cofx
-       ;; If we don't have any hidden message or the hidden message is before
-       ;; this one, we add the message to the UI
-       (if (or (not @view.state/first-not-visible-item)
+  (let [{:keys [view-id]} db
+        cursor-clock-value (get-in db [:chats chat-id :cursor-clock-value])]
+    (fx/merge
+     cofx
+     (add-message {:message       message
+                   :seen-by-user? (= view-id :chat)})
+     (add-sender-to-chat-users message)
+     ;; If we don't have any hidden message or the hidden message is before
+     ;; this one, we add the message to the UI
+     ;; TODO fix that
+     #_(if (or (not @view.state/first-not-visible-item)
                (<= (:clock-value @view.state/first-not-visible-item)
                    clock-value))
          (add-message {:message       message
-                       :seen-by-user? (and current-chat?
-                                           (= view-id :chat))})
+                       :seen-by-user? (= view-id :chat)})
          ;; Not in the current view, set all-loaded to false
          ;; and offload to db and update cursor if necessary
          {:db (cond-> (assoc-in db [:chats chat-id :all-loaded?] false)
                 (>= clock-value cursor-clock-value)
                 (update-in [:chats chat-id] assoc
                            :cursor (chat-loading/clock-value->cursor clock-value)
-                           :cursor-clock-value clock-value))})
-       (add-sender-to-chat-users message)))))
+                           :cursor-clock-value clock-value))}))))
 
 (defn- message-loaded?
   [{:keys [db]} {:keys [chat-id message-id]}]
@@ -146,10 +147,12 @@
 (fx/defn receive-one
   {:events [::receive-one]}
   [{:keys [db] :as cofx} {:keys [message-id chat-id] :as message}]
+  ()
   (fx/merge cofx
             ;;If its a profile updates we want to add this message to the timeline as well
-            #(when (get-in cofx [:db :chats chat-id :profile-public-key])
-               {:dispatch-n [[::receive-one (assoc message :chat-id constants/timeline-chat-id)]]})
+            #(when-let [contact-pub-key (get-in cofx [:db :chats chat-id :profile-public-key])]
+               (when (contact.db/added? db contact-pub-key)
+                 {:dispatch-n [[::receive-one (assoc message :chat-id constants/timeline-chat-id)]]}))
             #(when-not (earlier-than-deleted-at? cofx message)
                (if (message-loaded? cofx message)
                  ;; If the message is already loaded, it means it's an update, that

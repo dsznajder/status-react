@@ -180,7 +180,7 @@
                                     (re-frame/dispatch [:search/home-filter-changed nil])
                                     (if public?
                                       (re-frame/dispatch [:chat.ui/mark-public-all-read chat-id])
-                                      (re-frame/dispatch [:chat.ui/mark-messages-seen :chat])))
+                                      (re-frame/dispatch [:chat.ui/mark-messages-seen :chat chat-id])))
       :on-long-press             #(re-frame/dispatch [:bottom-sheet/show-sheet
                                                       {:content (fn []
                                                                   [sheets/actions home-item])}])}]))

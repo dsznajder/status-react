@@ -159,11 +159,7 @@
      ; reset chat first-not-visible-items state
       (chat.state/reset)
       (fx/merge cofx
-                {:db (-> db
-                        ;; We keep track of whether there's a loaded chat
-                        ;; which will be reset only if we hit home
-                         (assoc :loaded-chat-id chat-id)
-                         (assoc-in [:pagination-info chat-id :messages-initialized?] now))}
+                {:db (assoc-in db [:pagination-info chat-id :messages-initialized?] now)}
                 (message-seen/mark-messages-seen chat-id)
                 (load-more-messages chat-id)))
     ;; We mark messages as seen in case we received them while on a different tab

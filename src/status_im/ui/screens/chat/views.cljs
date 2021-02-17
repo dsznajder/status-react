@@ -156,12 +156,12 @@
                   first-not-visible)))))
   (debounce/debounce-and-dispatch [:chat.ui/message-visibility-changed e] 5000))
 
-(defn render-fn [{:keys [outgoing type] :as message} idx _ {:keys [group-chat public? current-public-key space-keeper]}]
+(defn render-fn [{:keys [outgoing type] :as message} idx _ {:keys [group-chat public? current-public-key space-keeper chat-id]}]
   [react/view {:style (when platform/android? {:scaleY -1})}
    (if (= type :datemark)
      [message-datemark/chat-datemark (:value message)]
      (if (= type :gap)
-       [gap/gap message idx messages-list-ref false]
+       [gap/gap message idx messages-list-ref false chat-id]
        ; message content
        [message/chat-message
         (assoc message
@@ -197,7 +197,8 @@
        :render-data                  {:group-chat         group-chat
                                       :public?            public?
                                       :current-public-key current-public-key
-                                      :space-keeper       space-keeper}
+                                      :space-keeper       space-keeper
+                                      :chat-id            current-chat-id}
        :render-fn                    render-fn
        ;:on-viewable-items-changed    on-viewable-items-changed
        :on-end-reached               #(re-frame/dispatch [:chat.ui/load-more-messages current-chat-id])
