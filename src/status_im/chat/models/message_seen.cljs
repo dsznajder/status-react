@@ -32,7 +32,7 @@
 
 (fx/defn ui-mark-messages-seen
   {:events [:chat.ui/mark-messages-seen]}
-  [{:keys [db] :as cofx} view-id]
+  [{:keys [db] :as cofx} view-id chat-id]
   (fx/merge cofx
             {:db (assoc db :view-id view-id)}
-            (mark-messages-seen cofx (:current-chat-id db))))
+            (mark-messages-seen cofx chat-id)))

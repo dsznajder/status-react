@@ -211,15 +211,15 @@
   {:db (assoc db :dimensions/window (dimensions/window dimensions))})
 
 (fx/defn init-timeline-chat
-   {:events [:init-timeline-chat]}
-   [{:keys [db] :as cofx}]
-   (fx/merge cofx
-             (fn [cofx]
-               (apply fx/merge cofx (map chat/start-profile-chat
-                                         (conj (map :public-key (contact.db/get-active-contacts (:contacts/contacts db)))
-                                               (get-in db [:multiaccount :public-key])))))
-             (chat/start-timeline-chat)
-             (chat/preload-chat-data constants/timeline-chat-id)))
+  {:events [:init-timeline-chat]}
+  [{:keys [db] :as cofx}]
+  (fx/merge cofx
+            (fn [cofx]
+              (apply fx/merge cofx (map chat/start-profile-chat
+                                        (conj (map :public-key (contact.db/get-active-contacts (:contacts/contacts db)))
+                                              (get-in db [:multiaccount :public-key])))))
+            (chat/start-timeline-chat)
+            (chat/preload-chat-data constants/timeline-chat-id)))
 
 (fx/defn on-will-focus
   {:events [:screens/on-will-focus]}

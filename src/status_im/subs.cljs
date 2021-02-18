@@ -39,8 +39,7 @@
             [status-im.chat.models.mentions :as mentions]
             [status-im.notifications.core :as notifications]
             [status-im.utils.currency :as currency]
-            [clojure.set :as clojure.set]
-            [status-im.chat.models :as chat]))
+            [clojure.set :as clojure.set]))
 
 ;; TOP LEVEL ===========================================================================================================
 
@@ -910,7 +909,7 @@
  :chats/current-profile-chat
  :<- [:contacts/current-contact-identity]
  (fn [identity]
-   (chat/profile-chat-topic identity)))
+   (chat.models/profile-chat-topic identity)))
 
 (re-frame/reg-sub
  :chats/photo-path

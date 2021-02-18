@@ -1,14 +1,12 @@
 (ns status-im.chat.models.message
   (:require [re-frame.core :as re-frame]
             [status-im.chat.models :as chat-model]
-            [status-im.chat.models.loading :as chat-loading]
             [status-im.chat.models.message-list :as message-list]
             [status-im.constants :as constants]
             [status-im.data-store.messages :as data-store.messages]
             [status-im.ethereum.json-rpc :as json-rpc]
             [status-im.multiaccounts.model :as multiaccounts.model]
             [status-im.transport.message.protocol :as protocol]
-            [status-im.ui.screens.chat.state :as view.state]
             [status-im.utils.fx :as fx]
             [taoensso.timbre :as log]
             [status-im.chat.models.mentions :as mentions]
@@ -84,6 +82,7 @@
    {:keys [chat-id clock-value] :as message}]
   (let [{:keys [view-id]} db
         cursor-clock-value (get-in db [:chats chat-id :cursor-clock-value])]
+    ;;TODO do not add if paging doesn't exist
     (fx/merge
      cofx
      (add-message {:message       message

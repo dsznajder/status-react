@@ -20,8 +20,7 @@
             [clojure.string :as string]
             [quo.components.list.item :as list-item]
             [status-im.ui.components.list.views :as list]
-            [status-im.ui.screens.status.views :as status.views]
-            [status-im.ui.screens.chat.views :as chat.views])
+            [status-im.ui.screens.status.views :as status.views])
   (:require-macros [status-im.utils.views :as views]))
 
 (defn actions

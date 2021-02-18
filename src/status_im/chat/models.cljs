@@ -377,13 +377,12 @@
 
 (fx/defn chat-ui-fill-gaps
   {:events [:chat.ui/fill-gaps]}
-  [{:keys [db] :as cofx} gap-ids]
-  (let [chat-id (:current-chat-id db)
-        topics (mailserver.topics/topics-for-current-chat db)
-        gaps (keep
-              (fn [id]
-                (get-in db [:mailserver/gaps chat-id id]))
-              gap-ids)]
+  [{:keys [db] :as cofx} gap-ids chat-id]
+  (let [topics  (mailserver.topics/topics-for-chat db chat-id)
+        gaps    (keep
+                 (fn [id]
+                   (get-in db [:mailserver/gaps chat-id id]))
+                 gap-ids)]
     (mailserver/fill-the-gap
      cofx
      {:gaps    gaps
@@ -392,16 +391,14 @@
 
 (fx/defn chat-ui-fetch-more
   {:events [:chat.ui/fetch-more]}
-  [{:keys [db] :as cofx}]
-  (let [chat-id (:current-chat-id db)
-
-        {:keys [lowest-request-from]}
+  [{:keys [db] :as cofx} chat-id]
+  (let [{:keys [lowest-request-from]}
         (get-in db [:mailserver/ranges chat-id])
 
-        topics (mailserver.topics/topics-for-current-chat db)
-        gaps [{:id   :first-gap
-               :to   lowest-request-from
-               :from (- lowest-request-from mailserver.constants/one-day)}]]
+        topics  (mailserver.topics/topics-for-chat db chat-id)
+        gaps    [{:id   :first-gap
+                  :to   lowest-request-from
+                  :from (- lowest-request-from mailserver.constants/one-day)}]]
     (mailserver/fill-the-gap
      cofx
      {:gaps    gaps

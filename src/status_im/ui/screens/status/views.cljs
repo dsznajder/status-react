@@ -11,7 +11,6 @@
             [status-im.ui.components.list.views :as list]
             [status-im.i18n.i18n :as i18n]
             [status-im.ui.screens.status.styles :as styles]
-            [status-im.ui.screens.chat.views :as chat.views]
             [status-im.ui.components.plus-button :as components.plus-button]
             [status-im.ui.screens.chat.image.preview.views :as preview]
             [status-im.ui.screens.chat.photos :as photos]

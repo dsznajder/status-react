@@ -79,7 +79,7 @@
 (def tabs
   (reagent/adapt-react-class
    (fn [props]
-     (let [{:keys [navigate index route state popToTop]} (bean props)
+     (let [{:keys [navigate index route popToTop]} (bean props)
            {:keys [keyboard-shown]
             :or   {keyboard-shown false}} (when platform/android? (rn/use-keyboard))
            {:keys [bottom]} (safe-area/use-safe-area)
