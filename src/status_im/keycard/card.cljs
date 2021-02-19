@@ -336,6 +336,25 @@
        (re-frame/dispatch [:keycard.callback/on-delete-error
                            (error-object->map response)]))})))
 
+(defn import-keys [{:keys [on-success] :as args}]
+  (log/info "[keycard] import-keys")
+  (keycard/import-keys
+   card
+   (merge
+    args
+    {:on-success
+     (fn [response]
+       (log/info "[keycard response succ] import-keys")
+       (re-frame/dispatch
+        [(or on-success :keycard.callback/on-generate-and-load-key-success)
+         response]))
+     :on-failure
+     (fn [response]
+       (log/info "[keycard response fail] import-keys"
+                 (error-object->map response))
+       (re-frame/dispatch [:keycard.callback/on-get-keys-error
+                           (error-object->map response)]))})))
+
 (defn get-keys [{:keys [on-success] :as args}]
   (log/debug "[keycard] get-keys")
   (keycard/get-keys

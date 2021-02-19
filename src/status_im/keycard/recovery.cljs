@@ -250,7 +250,7 @@
                                         (assoc-in [:keycard :pin :status] :verifying)
                                         (assoc-in [:keycard :secrets] {:pairing   pairing'
                                                                        :paired-on (utils.datetime/timestamp)}))
-               :keycard/get-keys {:pairing    pairing'
+               :keycard/import-keys {:pairing    pairing'
                                   :pin        pin
                                   :on-success :keycard.callback/on-generate-and-load-key-success}})))
 
