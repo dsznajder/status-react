@@ -68,6 +68,12 @@
   ([cofx chat-id]
    (timeline-chat? (get-chat cofx chat-id))))
 
+(defn profile-chat?
+  ([chat]
+   (:profile-public-key chat))
+  ([cofx chat-id]
+   (profile-chat? (get-chat cofx chat-id))))
+
 (defn set-chat-ui-props
   "Updates ui-props in active chat by merging provided kvs into them"
   [{:keys [current-chat-id] :as db} kvs]
@@ -78,6 +84,7 @@
              :join-time-mail-request-id
              :might-have-join-time-messages?))
 
+;;TODO we call it for every new message
 (fx/defn join-time-messages-checked
   "The key :might-have-join-time-messages? in public chats signals that
   the public chat is freshly (re)created and requests for messages to the
@@ -165,19 +172,6 @@
   [{:keys [db] :as cofx} chat-id on-success]
   (chats-store/save-chat cofx (get-in db [:chats chat-id]) on-success))
 
-(fx/defn handle-mark-all-read-successful
-  {:events [::mark-all-read-successful]}
-  [{:keys [db] :as cofx} chat-id]
-  {:db (assoc-in db [:chats chat-id :unviewed-messages-count] 0)})
-
-(fx/defn handle-mark-all-read
-  {:events [:chat.ui/mark-all-read-pressed
-            :chat.ui/mark-public-all-read]}
-  [{:keys [db] :as cofx} chat-id]
-  {::json-rpc/call [{:method (json-rpc/call-ext-method "markAllRead")
-                     :params [chat-id]
-                     :on-success #(re-frame/dispatch [::mark-all-read-successful chat-id])}]})
-
 (fx/defn add-public-chat
   "Adds new public group chat to db"
   [cofx topic profile-public-key timeline?]
@@ -195,8 +189,7 @@
                 :contacts                       #{}
                 :public?                        true
                 :might-have-join-time-messages? (get-in cofx [:db :multiaccount :use-mailservers?])
-                :unviewed-messages-count        0
-                :loaded-unviewed-messages-ids   #{}}
+                :unviewed-messages-count        0}
                nil))
 
 (fx/defn clear-history

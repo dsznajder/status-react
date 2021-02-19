@@ -186,8 +186,7 @@
                   loading? [:chats/loading?]
                   {:keys [chats search-filter]} [:home-items]
                   {:keys [hide-home-tooltip?]} [:multiaccount]]
-    [react/scroll-view
-     [communities-and-chats chats status-community loading? search-filter hide-home-tooltip?]]))
+    [communities-and-chats chats status-community loading? search-filter hide-home-tooltip?]))
 
 (views/defview plus-button []
   (views/letsubs [logging-in? [:multiaccounts/login]]

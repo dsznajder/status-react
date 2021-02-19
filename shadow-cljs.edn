@@ -39,6 +39,7 @@
            :output-dir "app"
            :init-fn status-im.core/init
            :dev {:devtools {:after-load status-im.reloader/reload
+                            :before-load status-im.reloader/before-reload
                             :build-notify status-im.reloader/build-notify
                             :preloads [re-frisk-remote.preload]}
                  :closure-defines {status-im.utils.config/INFURA_TOKEN #shadow/env "INFURA_TOKEN"}

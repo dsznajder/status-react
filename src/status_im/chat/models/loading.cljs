@@ -9,8 +9,8 @@
             [status-im.chat.models.reactions :as reactions]
             [status-im.chat.models.message-list :as message-list]
             [taoensso.timbre :as log]
-            [status-im.chat.models.message-seen :as message-seen]
-            [status-im.chat.models.mentions :as mentions]))
+            [status-im.chat.models.mentions :as mentions]
+            [status-im.ethereum.json-rpc :as json-rpc]))
 
 (defn cursor->clock-value
   [^js cursor]
@@ -29,34 +29,33 @@
                       new-chats)
         chats (merge old-chats chats)]
     {:db (assoc db :chats chats
-                :chats/loading? false)
-     :dispatch [:init-timeline-chat]}))
+                :chats/loading? false)}))
 
 ;;TODO im not sure in which cases we want to offload message and how its useful? i feel like flatlist works good with
 ;;big lists, we should retest
-(fx/defn handle-chat-visibility-changed
-  {:events [:chat.ui/message-visibility-changed]}
-  [{:keys [db]} ^js event]
-  (let [^js viewable-items (.-viewableItems event)
-        ^js last-element (aget viewable-items (dec (.-length viewable-items)))]
-    ;;TODO: what if we scroll and leave the chat and open another ?
-    (when last-element
-      (let [last-element-clock-value (:clock-value (.-item last-element))
-            chat-id (:chat-id (.-item last-element))]
-        (when (and last-element-clock-value
-                   (get-in db [:pagination-info chat-id :messages-initialized?]))
-          (let [new-messages (reduce-kv (fn [acc message-id {:keys [clock-value] :as v}]
-                                          (if (<= last-element-clock-value clock-value)
-                                            (assoc acc message-id v)
-                                            acc))
-                                        {}
-                                        (get-in db [:messages chat-id]))]
-            {:db (-> db
-                     (assoc-in [:messages chat-id] new-messages)
-                     (assoc-in [:pagination-info chat-id] {:all-loaded? false
-                                                           :messages-initialized? true
-                                                           :cursor (clock-value->cursor last-element-clock-value)})
-                     (assoc-in [:message-lists chat-id] (message-list/add-many nil (vals new-messages))))}))))))
+#_(fx/defn handle-chat-visibility-changed
+    {:events [:chat.ui/message-visibility-changed]}
+    [{:keys [db]} ^js event]
+    (let [^js viewable-items (.-viewableItems event)
+          ^js last-element (aget viewable-items (dec (.-length viewable-items)))]
+      ;;TODO: what if we scroll and leave the chat and open another ?
+      (when last-element
+        (let [last-element-clock-value (:clock-value (.-item last-element))
+              chat-id (:chat-id (.-item last-element))]
+          (when (and last-element-clock-value
+                     (get-in db [:pagination-info chat-id :messages-initialized?]))
+            (let [new-messages (reduce-kv (fn [acc message-id {:keys [clock-value] :as v}]
+                                            (if (<= last-element-clock-value clock-value)
+                                              (assoc acc message-id v)
+                                              acc))
+                                          {}
+                                          (get-in db [:messages chat-id]))]
+              {:db (-> db
+                       (assoc-in [:messages chat-id] new-messages)
+                       (assoc-in [:pagination-info chat-id] {:all-loaded? false
+                                                             :messages-initialized? true
+                                                             :cursor (clock-value->cursor last-element-clock-value)})
+                       (assoc-in [:message-lists chat-id] (message-list/add-many nil (vals new-messages))))}))))))
 
 (fx/defn initialize-chats
   "Initialize persisted chats on startup"
@@ -71,6 +70,18 @@
   (when current-chat-id
     {:db (assoc-in db [:pagination-info current-chat-id :loading-messages?] false)}))
 
+(fx/defn handle-mark-all-read-successful
+  {:events [::mark-all-read-successful]}
+  [{:keys [db]} chat-id]
+  {:db (assoc-in db [:chats chat-id :unviewed-messages-count] 0)})
+
+(fx/defn handle-mark-all-read
+  {:events [:chat.ui/mark-all-read-pressed :chat/mark-all-as-read]}
+  [_ chat-id]
+  {::json-rpc/call [{:method     (json-rpc/call-ext-method "markAllRead")
+                     :params     [chat-id]
+                     :on-success #(re-frame/dispatch [::mark-all-read-successful chat-id])}]})
+
 (fx/defn messages-loaded
   "Loads more messages for current chat"
   {:events [::messages-loaded]}
@@ -82,7 +93,6 @@
                  (not= session-id
                        (get-in db [:pagination-info chat-id :messages-initialized?])))
     (let [already-loaded-messages      (get-in db [:messages chat-id])
-          loaded-unviewed-messages-ids (get-in db [:chats chat-id :loaded-unviewed-messages-ids] #{})
           users                        (get-in db [:chats chat-id :users] {})
           ;; We remove those messages that are already loaded, as we might get some duplicates
           {:keys [all-messages
@@ -90,8 +100,8 @@
                   last-clock-value
                   unviewed-message-ids
                   users]}
-          (reduce (fn [{:keys [last-clock-value all-messages users] :as acc}
-                       {:keys [clock-value seen message-id alias name identicon from]
+          (reduce (fn [{:keys [last-clock-value all-messages] :as acc}
+                       {:keys [clock-value message-id alias name identicon from]
                         :as message}]
                     (let [nickname (get-in db [:contacts/contacts from :nickname])]
                       (cond-> acc
@@ -107,23 +117,18 @@
                             (> last-clock-value clock-value))
                         (assoc :last-clock-value clock-value)
 
-                        (not seen)
-                        (update :unviewed-message-ids conj message-id)
-
                         (nil? (get all-messages message-id))
                         (update :new-messages conj message)
 
                         :always
                         (update :all-messages assoc message-id message))))
                   {:all-messages         already-loaded-messages
-                   :unviewed-message-ids loaded-unviewed-messages-ids
                    :users                users
                    :new-messages         []}
                   messages)]
       (fx/merge cofx
                 {:db (-> db
                          (assoc-in [:pagination-info chat-id :cursor-clock-value] (when (seq cursor) (cursor->clock-value cursor)))
-                         (assoc-in [:chats chat-id :loaded-unviewed-messages-ids] unviewed-message-ids)
                          (assoc-in [:chats chat-id :users] users)
                          (assoc-in [:pagination-info chat-id :loading-messages?] false)
                          (assoc-in [:messages chat-id] all-messages)
@@ -131,7 +136,7 @@
                          (assoc-in [:pagination-info chat-id :cursor] cursor)
                          (assoc-in [:pagination-info chat-id :all-loaded?]
                                    (empty? cursor)))}
-                (message-seen/mark-messages-seen chat-id)))))
+                (handle-mark-all-read chat-id)))))
 
 (fx/defn load-more-messages
   {:events [:chat.ui/load-more-messages]}
@@ -160,7 +165,7 @@
       (chat.state/reset)
       (fx/merge cofx
                 {:db (assoc-in db [:pagination-info chat-id :messages-initialized?] now)}
-                (message-seen/mark-messages-seen chat-id)
+                (handle-mark-all-read chat-id)
                 (load-more-messages chat-id)))
     ;; We mark messages as seen in case we received them while on a different tab
-    (message-seen/mark-messages-seen cofx chat-id)))
+    (handle-mark-all-read cofx chat-id)))

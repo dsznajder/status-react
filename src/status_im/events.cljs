@@ -55,7 +55,6 @@
             status-im.mailserver.constants
             status-im.ethereum.subscriptions
             status-im.fleet.core
-            status-im.chat.models.message-seen
             status-im.contact.block
             status-im.contact.core
             status-im.contact.chat
@@ -213,13 +212,14 @@
 (fx/defn init-timeline-chat
   {:events [:init-timeline-chat]}
   [{:keys [db] :as cofx}]
-  (fx/merge cofx
-            (fn [cofx]
-              (apply fx/merge cofx (map chat/start-profile-chat
-                                        (conj (map :public-key (contact.db/get-active-contacts (:contacts/contacts db)))
-                                              (get-in db [:multiaccount :public-key])))))
-            (chat/start-timeline-chat)
-            (chat/preload-chat-data constants/timeline-chat-id)))
+  (when-not (get-in db [:pagination-info constants/timeline-chat-id :messages-initialized?])
+    (fx/merge cofx
+              (fn [cofx]
+                (apply fx/merge cofx (map chat/start-profile-chat
+                                          (conj (map :public-key (contact.db/get-active-contacts (:contacts/contacts db)))
+                                                (get-in db [:multiaccount :public-key])))))
+              (chat/start-timeline-chat)
+              (chat/preload-chat-data constants/timeline-chat-id))))
 
 (fx/defn on-will-focus
   {:events [:screens/on-will-focus]}

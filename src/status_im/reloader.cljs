@@ -12,10 +12,13 @@
 (defonce timeout (reagent/atom false))
 (defonce label (reagent/atom ""))
 
+(defn before-reload []
+  (println "before reload")
+  (re-frame/clear-subscription-cache!))
+
 (defn reload []
   (reset! warning? false)
   (reset! label "reloading UI")
-  (re-frame/clear-subscription-cache!)
   (swap! cnt inc))
 
 (defn build-competed []
