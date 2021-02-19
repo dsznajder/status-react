@@ -65,5 +65,5 @@
       "whisper.filter.added" (transport.filters/handle-negotiated-filter cofx (js->clj event-js :keywordize-keys true))
       "messages.new" (transport.message/process-response cofx event-js)
       "wallet" (ethereum.subscriptions/new-wallet-event cofx (js->clj event-js :keywordize-keys true))
-      "local-notifications" (local-notifications/process cofx (js->clj event-js :keywordize-keys true))
+      "local-notifications" (local-notifications/process cofx event-js)
       (log/debug "Event " type " not handled"))))

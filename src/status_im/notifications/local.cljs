@@ -129,6 +129,7 @@
   ([{{:keys [message contact chat]} :body}]
    (let [chat-type    (get chat :chatType)
          chat-id      (get chat :id)
+         ;;TODO : DON'T USE SUBS IN EVENTS
          contact-name @(re-frame/subscribe
                         [:contacts/contact-name-by-identity (get contact :id)])
          group-chat?  (not= chat-type constants/one-to-one-chat-type)
@@ -180,10 +181,13 @@
            local-push-android))
 
 (fx/defn process
-  [cofx evt]
-  (if platform/ios?
-    {::local-push-ios evt}
-    (local-notification-android cofx evt)))
+  [cofx evt-js]
+  (when (and (= (get-in cofx [:db :app-state]) "inactive")
+             (get-in cofx [:db :multiaccount :remote-push-notifications-enabled?]))
+    (let [evt (js->clj evt-js :keywordize-keys true)]
+      (if platform/ios?
+        {::local-push-ios evt}
+        (local-notification-android cofx evt)))))
 
 (defn handle []
   (fn [^js message]
