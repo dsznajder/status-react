@@ -8,7 +8,6 @@
             [status-im.ui.screens.routing.main :as routing]
             [status-im.ui.screens.signing.views :as signing]
             [status-im.ui.screens.popover.views :as popover]
-            [status-im.ui.screens.multiaccounts.recover.views :as recover.views]
             [status-im.ui.screens.wallet.send.views :as wallet]
             [status-im.ui.components.status-bar.view :as statusbar]
             [status-im.ui.components.colors :as colors]

@@ -1,26 +1,21 @@
-(ns status-im.ui.screens.communities.views (:require-macros [status-im.utils.views :as views])
-    (:require
-     [reagent.core :as reagent]
-     [re-frame.core :as re-frame]
-     [quo.core :as quo]
-     [status-im.i18n.i18n :as i18n]
-     [status-im.utils.core :as utils]
-     [status-im.utils.config :as config]
-     [status-im.constants :as constants]
-     [status-im.communities.core :as communities]
-     [status-im.utils.handlers :refer [>evt <sub]]
-     [status-im.ui.screens.home.views.inner-item :as inner-item]
-     [status-im.ui.screens.home.styles :as home.styles]
-     [status-im.ui.screens.chat.photos :as photos]
-     [status-im.ui.components.list.views :as list]
-     [status-im.ui.components.copyable-text :as copyable-text]
-     [status-im.react-native.resources :as resources]
-     [status-im.ui.components.topbar :as topbar]
-     [status-im.ui.components.icons.icons :as icons]
-     [status-im.ui.components.colors :as colors]
-     [status-im.ui.components.chat-icon.screen :as chat-icon.screen]
-     [status-im.ui.components.toolbar :as toolbar]
-     [status-im.ui.components.react :as react]))
+(ns status-im.ui.screens.communities.views
+  (:require
+   [quo.core :as quo]
+   [status-im.i18n.i18n :as i18n]
+   [status-im.utils.core :as utils]
+   [status-im.utils.config :as config]
+   [status-im.constants :as constants]
+   [status-im.communities.core :as communities]
+   [status-im.utils.handlers :refer [>evt <sub]]
+   [status-im.ui.screens.chat.photos :as photos]
+   [status-im.ui.components.list.views :as list]
+   [status-im.ui.components.copyable-text :as copyable-text]
+   [status-im.react-native.resources :as resources]
+   [status-im.ui.components.topbar :as topbar]
+   [status-im.ui.components.colors :as colors]
+   [status-im.ui.components.chat-icon.screen :as chat-icon.screen]
+   [status-im.ui.components.toolbar :as toolbar]
+   [status-im.ui.components.react :as react]))
 
 (defn hide-sheet-and-dispatch [event]
   (>evt [:bottom-sheet/hide])
@@ -51,34 +46,37 @@
       [chat-icon.screen/chat-icon-view-chat-list
        id true name color false false])))
 
-(defn community-home-list-item [{:keys [id name] :as community}]
-  [quo/list-item
-   {:icon                      [community-icon community]
-    :title                     [react/view {:flex-direction :row
-                                            :flex           1}
-                                [react/view {:flex-direction :row
-                                             :flex           1
-                                             :padding-right  16
-                                             :align-items    :center}
-                                 [quo/text {:weight              :medium
-                                            :accessibility-label :chat-name-text
-                                            :font-size           17
-                                            :ellipsize-mode      :tail
-                                            :number-of-lines     1}
-                                  name]]
-                                [react/view {:flex-direction  :row
-                                             :flex            1
-                                             :justify-content :flex-end
-                                             :align-items     :center}
-                                 [community-unviewed-count id]]]
-    :title-accessibility-label :chat-name-text
-    :on-press                  #(do
-                                  (>evt [:dismiss-keyboard])
-                                  (>evt [:navigate-to :community {:community-id id}]))
-    ;; TODO: actions
-    ;; :on-long-press             #(>evt [:bottom-sheet/show-sheet
-    ;;                                                 nil])
-    }])
+(defn community-home-list-item [{:keys [id name last?] :as community}]
+  [react/view
+   [quo/list-item
+    {:icon                      [community-icon community]
+     :title                     [react/view {:flex-direction :row
+                                             :flex           1}
+                                 [react/view {:flex-direction :row
+                                              :flex           1
+                                              :padding-right  16
+                                              :align-items    :center}
+                                  [quo/text {:weight              :medium
+                                             :accessibility-label :chat-name-text
+                                             :font-size           17
+                                             :ellipsize-mode      :tail
+                                             :number-of-lines     1}
+                                   name]]
+                                 [react/view {:flex-direction  :row
+                                              :flex            1
+                                              :justify-content :flex-end
+                                              :align-items     :center}
+                                  [community-unviewed-count id]]]
+     :title-accessibility-label :chat-name-text
+     :on-press                  #(do
+                                   (>evt [:dismiss-keyboard])
+                                   (>evt [:navigate-to :community {:community-id id}]))
+     ;; TODO: actions
+     ;; :on-long-press             #(>evt [:bottom-sheet/show-sheet
+     ;;                                                 nil])
+     }]
+   (when last?
+     [quo/separator])])
 
 (defn community-list-item [{:keys [id members name description] :as community}]
   (let [members-count (count members)]

@@ -251,7 +251,7 @@
  :<- [:search/home-filter]
  :<- [:communities]
  (fn [[search-filter communities]]
-   (filter
+   (filterv
     (fn [{:keys [name joined id]}]
       (and joined
            (or config/communities-management-enabled?
@@ -1232,9 +1232,21 @@
  :home-items
  :<- [:search/home-filter]
  :<- [:search/filtered-chats]
- (fn [[search-filter filtered-chats]]
-   {:search-filter search-filter
-    :chats         filtered-chats}))
+ :<- [:communities/communities]
+ (fn [[search-filter filtered-chats communities]]
+   (let [communities-count (count communities)
+         chats-count (count filtered-chats)
+         ;; If we have both communities & chats we want to display
+         ;; a separator between them
+
+         communities-with-separator (if (and (pos? communities-count)
+                                             (pos? chats-count))
+                                      (update communities
+                                              (dec communities-count)
+                                              assoc :last? true)
+                                      communities)]
+     {:search-filter search-filter
+      :items         (concat communities-with-separator filtered-chats)})))
 
 ;;PAIRING ==============================================================================================================
 
