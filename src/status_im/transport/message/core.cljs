@@ -7,7 +7,6 @@
             [status-im.communities.core :as models.communities]
             [status-im.pairing.core :as models.pairing]
             [status-im.transport.filters.core :as models.filters]
-            [status-im.data-store.messages :as data-store.messages]
             [status-im.data-store.reactions :as data-store.reactions]
             [status-im.data-store.contacts :as data-store.contacts]
             [status-im.data-store.chats :as data-store.chats]

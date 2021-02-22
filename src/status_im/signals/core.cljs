@@ -47,9 +47,7 @@
   ;; We only convert to clojure when strictly necessary or we know it
   ;; won't impact performance, as it is a fairly costly operation on large-ish
   ;; data structures
-  (let [n (re-frame.interop/now)
-        ^js data (.parse js/JSON event-str)
-        _ (println "parse JSON" (- (re-frame.interop/now) n))
+  (let [^js data (.parse js/JSON event-str)
         ^js event-js (.-event data)
         type (.-type data)]
     (case type

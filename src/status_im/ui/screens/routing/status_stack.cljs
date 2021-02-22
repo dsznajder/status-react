@@ -1,8 +1,7 @@
 (ns status-im.ui.screens.routing.status-stack
   (:require [status-im.ui.screens.routing.core :as navigation]
             [status-im.ui.components.tabbar.styles :as tabbar.styles]
-            [status-im.ui.screens.status.views :as status.views]
-            [status-im.constants :as constants]))
+            [status-im.ui.screens.status.views :as status.views]))
 
 (defonce stack (navigation/create-stack))
 

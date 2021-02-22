@@ -180,6 +180,7 @@
         messages           @(re-frame/subscribe [:chats/chat-messages-stream current-chat-id])
         no-messages?       @(re-frame/subscribe [:chats/chat-no-messages? current-chat-id])
         current-public-key @(re-frame/subscribe [:multiaccount/public-key])]
+    (println "RENDER " bottom-space)
     [list/flat-list
      (merge
       pan-responder
@@ -207,7 +208,7 @@
        :on-scroll-to-index-failed    #() ;;don't remove this
        :content-container-style      {:padding-top    (+ bottom-space 16)
                                       :padding-bottom 16}
-       :scrollIndicatorInsets        {:top bottom-space}
+       :scrollIndicatorInsets        {:top bottom-space} ;;ios only
        :keyboardDismissMode          "interactive"
        :keyboard-should-persist-taps :handled})]))
 
@@ -263,12 +264,13 @@
 
 (defn chat []
   (let [bottom-space   (reagent/atom 0)
-        panel-space    (reagent/atom 0)
+        panel-space    (reagent/atom 52)
         active-panel   (reagent/atom nil)
         position-y     (animated/value 0)
         pan-state      (animated/value 0)
         text-input-ref (quo.react/create-ref)
-        on-update      (partial reset! panel-space)
+        on-update      #(when-not (zero? %)
+                          (reset! panel-space %))
         pan-responder  (accessory/create-pan-responder position-y pan-state)
         space-keeper   (fn [state]
                          ;; NOTE: Only iOs now because we use soft input resize screen on android

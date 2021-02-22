@@ -250,7 +250,8 @@
   [{db :db :as cofx} chat-id]
   (fx/merge cofx
             {:db (assoc db :current-chat-id chat-id)
-             :dispatch [:navigate-to :chat-chat-stack {:screen :chat}]}
+             :dispatch-later [{:dispatch [:navigate-to :chat-chat-stack {:screen :chat}]
+                               :ms       60}]}
             (preload-chat-data chat-id)))
 
 (fx/defn start-chat
