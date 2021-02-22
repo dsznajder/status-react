@@ -307,35 +307,6 @@
 (def allowed-pins
   #{"121212" "111111" "222222" "123123"})
 
-(defn import-keys [{:keys [on-success on-failure pin]}]
-  (if (contains? allowed-pins pin)
-    (do
-      (swap! state assoc :pin pin)
-      (later
-       (if @derived-acc
-         (let [[id keys] (multiaccount->keys pin @derived-acc)]
-           (status/multiaccount-store-derived
-            id
-            (:key-uid keys)
-            [constants/path-wallet-root
-             constants/path-eip1581
-             constants/path-whisper
-             constants/path-default-wallet]
-            (ethereum/sha3 pin)
-            #(on-success keys)))
-         #(on-success
-           {:key-uid               (get-in @state [:application-info :key-uid])
-            :encryption-public-key (ethereum/sha3 pin)}))))
-    (do
-      (log/debug "Incorrect PIN" pin)
-      (swap! state update-in
-             [:application-info :pin-retry-counter]
-             (fnil dec 3))
-      (later
-       #(on-failure
-         #js {:code    "EUNSPECIFIED"
-              :message "Unexpected error SW, 0x63C2"})))))
-
 (defn get-keys [{:keys [on-success on-failure pin]}]
   (if (contains? allowed-pins pin)
     (do
@@ -364,6 +335,8 @@
        #(on-failure
          #js {:code    "EUNSPECIFIED"
               :message "Unexpected error SW, 0x63C2"})))))
+
+(def import-keys get-keys)
 
 (defn sign [{:keys [pin hash data path typed? on-success on-failure]}]
   (if (= pin (get @state :pin))
