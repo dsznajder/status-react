@@ -38,7 +38,9 @@
   (let [current-chat @(re-frame/subscribe [:current-chat/metadata])]
     [topbar/topbar
      {:content           [toolbar-content/toolbar-content-view current-chat]
-      :navigation        {:on-press #(re-frame/dispatch [:navigate-to :home])}
+      :navigation        {:on-press #(do
+                                       (re-frame/dispatch [:set :current-chat-id nil])
+                                       (re-frame/dispatch [:navigate-to :home]))}
       :right-accessories [{:icon                :main-icons/more
                            :accessibility-label :chat-menu-button
                            :on-press

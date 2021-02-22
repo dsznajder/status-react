@@ -7,18 +7,18 @@
             [status-im.ui.screens.communities.views :as communities]
             [status-im.ui.screens.profile.group-chat.views :as profile.group-chat]
             [status-im.ui.components.tabbar.styles :as tabbar.styles]
-            [status-im.ui.screens.stickers.views :as stickers]))
+            [status-im.ui.screens.stickers.views :as stickers]
+            [reagent.core :as reagent]
+            [status-im.ui.components.react :as react]))
 
 (defonce stack (navigation/create-stack))
 (defonce group-stack (navigation/create-stack))
 
-(defn chat-stack []
-  [stack {:initial-route-name :home
-          :header-mode        :none}
-   [{:name      :home
-     :style     {:padding-bottom tabbar.styles/tabs-diff}
-     :component home/home}
-    {:name      :referral-enclav
+(defn chat-chat-stack []
+  [stack {:initial-route-name :chat
+          :header-mode        :none
+          :detachInactiveScreens false}
+   [{:name      :referral-enclav
      :component referrals.public-chat/view}
     {:name       :communities
      :transition :presentation-ios
@@ -39,6 +39,24 @@
      :component stickers/packs}
     {:name      :stickers-pack
      :component stickers/pack}]])
+
+
+(defonce bottom-tabs (navigation/create-bottom-tabs))
+
+(defn tabbar [props]
+ (reagent/as-element
+  [react/view]))
+
+(defn chat-stack []
+  [bottom-tabs {:initial-route-name :home
+                :header-mode        :none
+                :tab-bar            tabbar}
+   [{:name      :home
+     :style     {:padding-bottom tabbar.styles/tabs-diff}
+     :component home/home}
+    {:name      :chat-chat-stack
+     :insets    {:top false}
+     :component chat-chat-stack}]])
 
 (defn new-group-chat []
   [group-stack {:header-mode        :none

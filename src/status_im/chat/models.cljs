@@ -18,7 +18,8 @@
             [status-im.utils.types :as types]
             [status-im.add-new.db :as new-public-chat.db]
             [status-im.mailserver.topics :as mailserver.topics]
-            [status-im.mailserver.constants :as mailserver.constants]))
+            [status-im.mailserver.constants :as mailserver.constants]
+            [status-im.chat.models.loading :as loading]))
 
 (defn chats []
   (:chats (types/json->clj (js/require "./chats.js"))))
@@ -239,7 +240,7 @@
   "Takes chat-id and coeffects map, returns effects necessary when navigating to chat"
   [{:keys [db] :as cofx} chat-id]
   (fx/merge cofx
-            {:dispatch [:load-messages chat-id]}
+            (loading/load-messages chat-id)
             (when-not (or (group-chat? cofx chat-id) (timeline-chat? cofx chat-id))
               (transport.filters/load-chat chat-id))))
 
@@ -248,9 +249,9 @@
   {:events [:chat.ui/navigate-to-chat]}
   [{db :db :as cofx} chat-id]
   (fx/merge cofx
-            {:db (assoc db :current-chat-id chat-id)}
-            (preload-chat-data chat-id)
-            (navigation/navigate-to-cofx :chat-stack {:screen :chat})))
+            {:db (assoc db :current-chat-id chat-id)
+             :dispatch [:navigate-to :chat-chat-stack {:screen :chat}]}
+            (preload-chat-data chat-id)))
 
 (fx/defn start-chat
   "Start a chat, making sure it exists"
