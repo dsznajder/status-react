@@ -315,7 +315,6 @@
     ;; Delete multiaccount and init keycard onboarding
     (re-frame/dispatch [::multiaccounts.key-storage/delete-multiaccount-and-init-keycard-onboarding]))
 
-
   ;; Show error popup
   (re-frame/dispatch [::multiaccounts.key-storage/show-seed-key-uid-mismatch-error-popup])
   (re-frame/dispatch [::multiaccounts.key-storage/show-transfer-warning-popup])
