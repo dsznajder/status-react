@@ -67,13 +67,6 @@
                        :params [public-key name profile-image]
                        :on-success #(log/debug "contact request sent" public-key)}]}))
 
-(fx/defn offload-messages
-  [{:keys [db]} chat-id]
-  {:db (-> db
-           (update :messages dissoc chat-id)
-           (update :message-lists dissoc chat-id)
-           (update :pagination-info dissoc chat-id))})
-
 (fx/defn add-contact
   "Add a contact and set pending to false"
   {:events [:contact.ui/add-to-contact-pressed]
@@ -89,9 +82,9 @@
                             (fnil #(conj % :contact/added) #{})))]
       (fx/merge cofx
                 {:db (dissoc db :contacts/new-identity)
-                 :dispatch [:start-profile-chat public-key]}
+                 :dispatch-n [[:start-profile-chat public-key]
+                              [:offload-messages constants/timeline-chat-id]]}
                 (upsert-contact contact)
-                (offload-messages constants/timeline-chat-id)
                 (send-contact-request contact)
                 (mailserver/process-next-messages-request)))))
 

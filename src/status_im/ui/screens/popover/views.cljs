@@ -69,7 +69,7 @@
                                                     "hardwareBackPress"
                                                     request-close)))]
     (reagent/create-class
-     {:component-will-update
+     {:component-did-update
       (fn [_ [_ popover _]]
         (when @clear-timeout (js/clearTimeout @clear-timeout))
         (cond

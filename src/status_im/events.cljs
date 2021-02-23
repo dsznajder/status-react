@@ -1,16 +1,9 @@
 (ns status-im.events
   (:require [re-frame.core :as re-frame]
             [status-im.chat.models :as chat]
-            [status-im.chat.models.message :as chat.message]
-            [status-im.chat.models.reactions :as chat.reactions]
-            [status-im.data-store.chats :as data-store.chats]
-            [status-im.data-store.messages :as data-store.messages]
-            [status-im.data-store.reactions :as data-store.reactions]
-            [status-im.group-chats.core :as group-chats]
             [status-im.i18n.i18n :as i18n]
             [status-im.mailserver.core :as mailserver]
             [status-im.multiaccounts.core :as multiaccounts]
-            [status-im.transport.message.core :as transport.message]
             [status-im.ui.components.react :as react]
             [status-im.utils.fx :as fx]
             status-im.utils.logging.core
@@ -22,7 +15,6 @@
             [status-im.native-module.core :as status]
             [status-im.ui.components.permissions :as permissions]
             [status-im.utils.utils :as utils]
-            [status-im.data-store.invitations :as data-store.invitations]
             [status-im.contact.db :as contact.db]
             [status-im.ethereum.json-rpc :as json-rpc]
             clojure.set
@@ -99,30 +91,6 @@
  :ui/listen-to-window-dimensions-change
  (fn []
    (dimensions/add-event-listener)))
-
-;;TODO: map fx/merge is slow, we shouldn't do it, its much better to have one fx for vector of items
-(fx/defn handle-update
-  {:events [:transport/reaction-sent :transport/retraction-sent :transport/invitation-sent]}
-  [cofx {:keys [chats messages emojiReactions invitations]}]
-  (let [chats (map data-store.chats/<-rpc chats)
-        messages (map data-store.messages/<-rpc messages)
-        message-fxs (map chat.message/receive-one messages)
-        emoji-reactions (map data-store.reactions/<-rpc emojiReactions)
-        emoji-react-fxs (map chat.reactions/receive-one emoji-reactions)
-        invitations-fxs [(group-chats/handle-invitations
-                          (map data-store.invitations/<-rpc invitations))]
-        chat-fxs (map #(chat/ensure-chat (dissoc % :unviewed-messages-count)) chats)]
-    (apply fx/merge cofx (concat chat-fxs message-fxs emoji-react-fxs invitations-fxs))))
-
-(fx/defn transport-message-sent
-  {:events [:transport/message-sent]}
-  [cofx response messages-count]
-  (let [set-hash-fxs (map (fn [{:keys [localChatId id messageType]}]
-                            (transport.message/set-message-envelope-hash localChatId id messageType messages-count))
-                          (:messages response))]
-    (apply fx/merge cofx
-           (conj set-hash-fxs
-                 (handle-update response)))))
 
 (fx/defn dismiss-keyboard
   {:events [:dismiss-keyboard]}

@@ -141,8 +141,9 @@
                                :text "Upgrade here to see an invitation to community"
                                :communityId community-id
                                :contentType constants/content-type-community}]
+                     :js-response true
                      :on-success
-                     #(re-frame/dispatch [:transport/message-sent % 1])
+                     #(re-frame/dispatch [:transport/message-sent %])
                      :on-failure #(log/error "failed to send a message" %)}]})
 
 (fx/defn invite-user [cofx

@@ -39,6 +39,7 @@
     [topbar/topbar
      {:content           [toolbar-content/toolbar-content-view current-chat]
       :navigation        {:on-press #(do
+                                       (re-frame/dispatch [:offload-messages (:chat-id current-chat)])
                                        (re-frame/dispatch [:set :current-chat-id nil])
                                        (re-frame/dispatch [:navigate-to :home]))}
       :right-accessories [{:icon                :main-icons/more
@@ -180,37 +181,37 @@
         messages           @(re-frame/subscribe [:chats/chat-messages-stream current-chat-id])
         no-messages?       @(re-frame/subscribe [:chats/chat-no-messages? current-chat-id])
         current-public-key @(re-frame/subscribe [:multiaccount/public-key])]
-    (println "RENDER " bottom-space)
-    [list/flat-list
-     (merge
-      pan-responder
-      {:key-fn                       #(or (:message-id %) (:value %))
-       :ref                          #(reset! messages-list-ref %)
-       :header                       (when (= chat-type constants/private-group-chat-type)
-                                       [react/view {:style (when platform/android? {:scaleY -1})}
-                                        [chat.group/group-chat-footer chat-id invitation-admin]])
-       :footer                       [react/view {:style (when platform/android? {:scaleY -1})}
-                                      [chat-intro-header-container chat no-messages?]
-                                      (when (= chat-type constants/one-to-one-chat-type)
-                                        [invite.chat/reward-messages])]
-       :data                         messages
-       ;;TODO https://github.com/facebook/react-native/issues/30034
-       :inverted                     (when platform/ios? true)
-       :style                        (when platform/android? {:scaleY -1})
-       :render-data                  {:group-chat         group-chat
-                                      :public?            public?
-                                      :current-public-key current-public-key
-                                      :space-keeper       space-keeper
-                                      :chat-id            current-chat-id}
-       :render-fn                    render-fn
-       ;:on-viewable-items-changed    on-viewable-items-changed
-       :on-end-reached               #(re-frame/dispatch [:chat.ui/load-more-messages current-chat-id])
-       :on-scroll-to-index-failed    #() ;;don't remove this
-       :content-container-style      {:padding-top    (+ bottom-space 16)
-                                      :padding-bottom 16}
-       :scrollIndicatorInsets        {:top bottom-space} ;;ios only
-       :keyboardDismissMode          "interactive"
-       :keyboard-should-persist-taps :handled})]))
+    (when current-chat-id
+      [list/flat-list
+       (merge
+        pan-responder
+        {:key-fn                       #(or (:message-id %) (:value %))
+         :ref                          #(reset! messages-list-ref %)
+         :header                       (when (= chat-type constants/private-group-chat-type)
+                                         [react/view {:style (when platform/android? {:scaleY -1})}
+                                          [chat.group/group-chat-footer chat-id invitation-admin]])
+         :footer                       [react/view {:style (when platform/android? {:scaleY -1})}
+                                        [chat-intro-header-container chat no-messages?]
+                                        (when (= chat-type constants/one-to-one-chat-type)
+                                          [invite.chat/reward-messages])]
+         :data                         messages
+         ;;TODO https://github.com/facebook/react-native/issues/30034
+         :inverted                     (when platform/ios? true)
+         :style                        (when platform/android? {:scaleY -1})
+         :render-data                  {:group-chat         group-chat
+                                        :public?            public?
+                                        :current-public-key current-public-key
+                                        :space-keeper       space-keeper
+                                        :chat-id            current-chat-id}
+         :render-fn                    render-fn
+         ;:on-viewable-items-changed    on-viewable-items-changed
+         :on-end-reached               #(re-frame/dispatch [:chat.ui/load-more-messages current-chat-id])
+         :on-scroll-to-index-failed    #() ;;don't remove this
+         :content-container-style      {:padding-top    (+ bottom-space 16)
+                                        :padding-bottom 16}
+         :scrollIndicatorInsets        {:top bottom-space} ;;ios only
+         :keyboardDismissMode          "interactive"
+         :keyboard-should-persist-taps :handled})])))
 
 (defn bottom-sheet [input-bottom-sheet]
   (case input-bottom-sheet
@@ -302,9 +303,10 @@
          [connectivity/loading-indicator]
          [topbar]
          [react/view {:style {:flex 1}}
-          (if group-chat
-            [invitation-requests chat-id admins]
-            [add-contact-bar chat-id])
+          (when current-chat
+            (if group-chat
+              [invitation-requests chat-id admins]
+              [add-contact-bar chat-id]))
           [messages-view {:chat          current-chat
                           :bottom-space  (max @bottom-space @panel-space)
                           :pan-responder pan-responder

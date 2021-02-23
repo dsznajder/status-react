@@ -85,7 +85,6 @@
              :join-time-mail-request-id
              :might-have-join-time-messages?))
 
-;;TODO we call it for every new message
 (fx/defn join-time-messages-checked
   "The key :might-have-join-time-messages? in public chats signals that
   the public chat is freshly (re)created and requests for messages to the
@@ -223,6 +222,14 @@
            (assoc-in [:chats chat-id :is-active] false)
            (assoc-in [:current-chat-id] nil))})
 
+(fx/defn offload-messages
+  {:events [:offload-messages]}
+  [{:keys [db]} chat-id]
+  {:db (-> db
+           (update :messages dissoc chat-id)
+           (update :message-lists dissoc chat-id)
+           (update :pagination-info dissoc chat-id))})
+
 (fx/defn remove-chat
   "Removes chat completely from app, producing all necessary effects for that"
   {:events [:chat.ui/remove-chat]}
@@ -231,6 +238,7 @@
             (mailserver/remove-gaps chat-id)
             (mailserver/remove-range chat-id)
             (deactivate-chat chat-id)
+            (offload-messages chat-id)
             (clear-history chat-id true)
             (transport.filters/stop-listening chat-id)
             (when (not (= (:view-id db) :home))
@@ -240,7 +248,8 @@
   "Takes chat-id and coeffects map, returns effects necessary when navigating to chat"
   [{:keys [db] :as cofx} chat-id]
   (fx/merge cofx
-            (loading/load-messages chat-id)
+            ;;we want to render chat screen first and then render messages
+            {:utils/dispatch-later [{:ms 20 :dispatch [:load-messages chat-id]}]}
             (when-not (or (group-chat? cofx chat-id) (timeline-chat? cofx chat-id))
               (transport.filters/load-chat chat-id))))
 
@@ -249,10 +258,9 @@
   {:events [:chat.ui/navigate-to-chat]}
   [{db :db :as cofx} chat-id]
   (fx/merge cofx
-            {:db (assoc db :current-chat-id chat-id)
-             :dispatch-later [{:dispatch [:navigate-to :chat-chat-stack {:screen :chat}]
-                               :ms       60}]}
-            (preload-chat-data chat-id)))
+            {:db (assoc db :current-chat-id chat-id)}
+            (preload-chat-data chat-id)
+            (navigation/navigate-to-cofx :chat-chat-stack {:screen :chat})))
 
 (fx/defn start-chat
   "Start a chat, making sure it exists"
@@ -261,11 +269,11 @@
   ;; don't allow to open chat with yourself
   (when (not= (multiaccounts.model/current-public-key cofx) chat-id)
     (fx/merge cofx
+              {:dispatch [:chat.ui/navigate-to-chat chat-id]}
               (upsert-chat {:chat-id   chat-id
                             :is-active true}
                            nil)
-              (transport.filters/load-chat chat-id)
-              (navigate-to-chat chat-id))))
+              (transport.filters/load-chat chat-id))))
 
 (defn profile-chat-topic [public-key]
   (str "@" public-key))
@@ -282,7 +290,7 @@
                 (add-public-chat topic profile-public-key false)
                 (transport.filters/load-chat topic)
                 #(when-not dont-navigate?
-                   (navigate-to-chat % topic))))
+                   {:dispatch [:chat.ui/navigate-to-chat topic]})))
     {:utils/show-popup {:title   (i18n/label :t/cant-open-public-chat)
                         :content (i18n/label :t/invalid-public-chat-topic)}}))
 

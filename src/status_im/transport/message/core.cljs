@@ -72,7 +72,6 @@
         (js-delete response-js "chats")
         (fx/merge cofx
                   {:utils/dispatch-later [{:ms 20 :dispatch [:process-response response-js]}]}
-                  #(when debug? (assoc-in % [:db :signal-debug :process-chats] (count chats)))
                   (models.chat/ensure-chats (map #(-> %
                                                       (data-store.chats/<-rpc)
                                                       ;;TODO why here?
@@ -151,7 +150,7 @@
 
 (fx/defn set-message-envelope-hash
   "message-type is used for tracking"
-  [{:keys [db] :as cofx} chat-id message-id message-type messages-count]
+  [{:keys [db] :as cofx} chat-id message-id message-type]
   ;; Check first if the confirmation has already arrived
   (let [statuses (get-in db [:transport/message-confirmations message-id])
         check-confirmations-fx (map
@@ -165,5 +164,15 @@
                                                {:chat-id      chat-id
                                                 :message-type message-type})
                                      (update-in [:transport/message-ids->confirmations message-id]
-                                                #(or % {:pending-confirmations messages-count})))})]
+                                                #(or % {:pending-confirmations 1})))})]
     (apply fx/merge cofx (conj check-confirmations-fx add-envelope-data))))
+
+(fx/defn transport-message-sent
+  {:events [:transport/message-sent]}
+  [cofx response-js]
+  (let [set-hash-fxs (map (fn [{:keys [localChatId id messageType]}]
+                            (set-message-envelope-hash localChatId id messageType))
+                          (types/js->clj (.-messages response-js)))]
+    (apply fx/merge cofx
+             (conj set-hash-fxs
+                   {:dispatch [:process-response response-js]}))))

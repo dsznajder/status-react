@@ -14,11 +14,29 @@
             [status-im.contact.db :as contact.db]
             [status-im.utils.types :as types]))
 
-(defn- prepare-message
-  [message current-chat?]
-  (cond-> message
-    current-chat?
-    (assoc :seen true)))
+(defn- message-loaded?
+  [db chat-id message-id]
+  (get-in db [:messages chat-id message-id]))
+
+(defn- earlier-than-deleted-at?
+  [db chat-id clock-value]
+  (>= (get-in db [:chats chat-id :deleted-at-clock-value]) clock-value))
+
+(defn update-unviewed-count-in-db
+  [{:keys [db] :as acc} {:keys [chat-id from message-type new?]}]
+  (if (or (= message-type constants/message-type-private-group-system-message)
+          (= from (multiaccounts.model/current-public-key {:db db}))
+          (chat-model/profile-chat? {:db db} chat-id)
+          (= (:current-chat-id db) chat-id))
+    acc
+    (cond-> acc
+      new?
+      (update-in [:db :chats chat-id :unviewed-messages-count] inc))))
+
+(defn add-timeline-message [acc chat-id message-id message]
+  (-> acc
+      (update-in [:db :messages chat-id] assoc message-id message)
+      (update-in [:db :message-lists chat-id] message-list/add message)))
 
 (fx/defn rebuild-message-list
   [{:keys [db]} chat-id]
@@ -41,117 +59,38 @@
             (data-store.messages/mark-messages-seen chat-id [message-id] #(re-frame/dispatch [::hidden-message-marked-as-seen %1 %2 %3]))
             (rebuild-message-list chat-id)))
 
-(fx/defn add-message [{:keys [db]}
-                      {:keys [chat-id message-id] :as message}]
-  (let [prepared-message (prepare-message message (= (:view-id db) :chat))]
-    {:db (-> db
-             ;; We should not be always adding to the list, as it does not make sense
-             ;; if the chat has not been initialized, but run into
-             ;; some troubles disabling it, so next time
-             (update-in [:messages chat-id] assoc message-id prepared-message)
-             (update-in [:message-lists chat-id] message-list/add prepared-message))}))
+(fx/defn join-times-messages-checked
+  "The key :might-have-join-time-messages? in public chats signals that
+  the public chat is freshly (re)created and requests for messages to the
+  mailserver for the topic has not completed yet. Likewise, the key
+  :join-time-mail-request-id is associated a little bit after, to signal that
+  the request to mailserver was a success. When request is signalled complete
+  by mailserver, corresponding event :chat.ui/join-times-messages-checked
+  dissociates these two fileds via this function, thereby signalling that the
+  public chat is not fresh anymore."
+  {:events [:chat/join-times-messages-checked]}
+  [{:keys [db] :as cofx} chat-ids]
+  (reduce (fn [acc chat-id]
+            (cond-> acc
+              (:might-have-join-time-messages? (chat-model/get-chat cofx chat-id))
+              (update :db #(chat-model/dissoc-join-time-fields % chat-id))))
+          {:db db}
+          chat-ids))
 
-(fx/defn add-and-hide-message
-  [{:keys [db] :as cofx}
-   {:keys [chat-id message-id replace timestamp from] :as message}]
-  (let [message-to-be-removed (when replace
-                                (get-in db [:messages chat-id replace]))]
-    (fx/merge cofx
-              (when message-to-be-removed
-                (hide-message chat-id message-to-be-removed))
-              (add-message message))))
-
-(fx/defn add-sender-to-chat-users
-  [{:keys [db]} {:keys [chat-id alias name identicon from]}]
-  (when (and alias (not= alias ""))
-    {:db (update-in db [:chats chat-id :users] assoc
-                    from
-                    (mentions/add-searchable-phrases
-                     {:alias      alias
-                      :name       (or name alias)
-                      :identicon  identicon
-                      :public-key from
-                      :nickname   (get-in db [:contacts/contacts from :nickname])}))}))
-
-(fx/defn add-received-message
-  [{:keys [db] :as cofx} message]
-  (fx/merge
-   cofx
-   (add-and-hide-message message)
-   (add-sender-to-chat-users message)))
-
-(defn- message-loaded?
-  [db chat-id message-id]
-  (get-in db [:messages chat-id message-id]))
-
-(defn- earlier-than-deleted-at?
-  [db chat-id clock-value]
-  (>= (get-in db [:chats chat-id :deleted-at-clock-value]) clock-value))
-
-(fx/defn update-unviewed-count
-  [{:keys [db] :as cofx} {:keys [chat-id from message-type message-id new?]}]
-  (when-not (= message-type constants/message-type-private-group-system-message)
-    (let [{:keys [current-chat-id view-id]} db
-          chat-view?         (= :chat view-id)]
-      (cond
-        (= from (multiaccounts.model/current-public-key cofx))
-       ;; nothing to do
-        nil
-
-        (and chat-view? (= current-chat-id chat-id))
-        (fx/merge cofx
-                  (data-store.messages/mark-messages-seen current-chat-id [message-id] nil))
-
-        new?
-        {:db (update-in db [:chats chat-id :unviewed-messages-count] inc)}))))
-
-(fx/defn check-for-incoming-tx
-  [cofx {{:keys [transaction-hash]} :command-parameters}]
-  (when (and transaction-hash
-             (not (string/blank? transaction-hash)))
-    ;; NOTE(rasom): dispatch later is needed because of circular dependency
-    {:dispatch-later
-     [{:dispatch [:watch-tx transaction-hash]
-       :ms       20}]}))
-
-(fx/defn receive-one
-  {:events [::receive-one]}
-  [{:keys [db] :as cofx} {:keys [message-id chat-id clock-value] :as message}]
-  ;;we add message only if chat was intialized and already has loaded messages
-  (when (get-in db [:pagination-info chat-id :messages-initialized?])
-    (fx/merge cofx
-              ;;If its a profile updates we want to add this message to the timeline as well
-              #(when-let [contact-pub-key (get-in cofx [:db :chats chat-id :profile-public-key])]
-                 (when (contact.db/added? db contact-pub-key)
-                   {:dispatch-n [[::receive-one (assoc message :chat-id constants/timeline-chat-id)]]}))
-              ;;TODO what is earlier-than-deleted-at? for ?
-              #(when-not (earlier-than-deleted-at? db chat-id clock-value)
-                 (if (message-loaded? db chat-id message-id)
-                   ;; If the message is already loaded, it means it's an update, that
-                   ;; happens when a message that was missing a reply had the reply
-                   ;; coming through, in which case we just insert the new message
-                   {:db (assoc-in db [:messages chat-id message-id] message)}
-                   (fx/merge cofx
-                             (add-received-message message)
-                             (update-unviewed-count message)
-                             (chat-model/join-time-messages-checked chat-id)
-                             (check-for-incoming-tx message)))))))
-
-(defn update-unviewed-count-in-db
-  [{:keys [db] :as acc} {:keys [chat-id from message-type new?]}]
-  (if (or (= message-type constants/message-type-private-group-system-message)
-          (= from (multiaccounts.model/current-public-key {:db db}))
-          (chat-model/profile-chat? {:db db} chat-id)
-          (= (:current-chat-id db) chat-id))
-    acc
-    (cond-> acc
-      new?
-      (update-in [:db :chats chat-id :unviewed-messages-count] inc))))
-
-(defn add-timeline-message [acc chat-id message-id message]
-  (-> acc
-      (update-in [:db :messages chat-id] assoc message-id message)
-      (update-in [:db :message-lists chat-id] message-list/add message)))
+(fx/defn add-senders-to-chat-users
+  {:events [:chat/add-senders-to-chat-users]}
+  [{:keys [db]} messages]
+  (reduce (fn [acc {:keys [chat-id alias name identicon from]}]
+            (update-in acc [:db :chats chat-id :users] assoc
+                       from
+                       (mentions/add-searchable-phrases
+                        {:alias      alias
+                         :name       (or name alias)
+                         :identicon  identicon
+                         :public-key from
+                         :nickname   (get-in db [:contacts/contacts from :nickname])})))
+          {:db db}
+          messages))
 
 (defn reduce-js-messages [{:keys [db] :as acc} ^js message-js]
   (let [chat-id (.-chatId message-js)
@@ -168,7 +107,6 @@
     ;;ignore not opened chats and earlier clock
     (if (and (get-in db [:pagination-info chat-id :messages-initialized?])
              (not (earlier-than-deleted-at? db chat-id clock-value)))
-             ;;TODO do not add older messages than in paging , only newer)
       (let [{:keys [transaction-hash alias replace from] :as message}
             (or timeline-message (data-store.messages/<-rpc (types/js->clj message-js)))]
         (if (message-loaded? db chat-id message-id)
@@ -206,17 +144,11 @@
             (update :chats conj chat-id))))
       acc)))
 
-(def debug? ^boolean js/goog.DEBUG)
-
 (defn receive-many [{:keys [db]} ^js response-js]
-  (let [messages-js ^js (.splice (.-messages response-js) 0 50)
-        msg-cnt (count messages-js)
+  (let [messages-js ^js (.splice (.-messages response-js) 0 10)
         {:keys [db _ chats senders transactions]}
         (reduce reduce-js-messages
-                {:db (-> db
-                         (assoc-in [:db :debug :list-add-num] 0)
-                         (assoc-in [:db :debug :list-add] 0))
-                 :replaced #{} :chats #{} :senders #{} :transactions #{}}
+                {:db db :replaced #{} :chats #{} :senders #{} :transactions #{}}
                 messages-js)
         current-chat-id (:current-chat-id db)]
     ;;we want to render new messages as soon as possible so we dispatch later all other events which can be handled async
@@ -236,34 +168,7 @@
                                        {:ms 60 :dispatch [:watch-tx transaction-hash]}))
                                    (when (seq chats)
                                      [{:ms 50 :dispatch [:chat/join-times-messages-checked chats]}]))
-     :db (cond-> db
-           debug?
-           (assoc-in [:signal-debug :process-messsages] msg-cnt))}))
-
-(fx/defn join-time-messages-checked
-  {:events [:chat/join-times-messages-checked]}
-  [{:keys [db] :as cofx} chat-ids]
-  (reduce (fn [acc chat-id]
-            (cond-> acc
-              (:might-have-join-time-messages? (chat-model/get-chat cofx chat-id))
-              (update :db #(chat-model/dissoc-join-time-fields % chat-id))))
-          {:db db}
-          chat-ids))
-
-(fx/defn add-senders-to-chat-users
-  {:events [:chat/add-senders-to-chat-users]}
-  [{:keys [db]} messages]
-  (reduce (fn [acc {:keys [chat-id alias name identicon from]}]
-            (update-in acc [:db :chats chat-id :users] assoc
-                       from
-                       (mentions/add-searchable-phrases
-                        {:alias      alias
-                         :name       (or name alias)
-                         :identicon  identicon
-                         :public-key from
-                         :nickname   (get-in db [:contacts/contacts from :nickname])})))
-          {:db db}
-          messages))
+     :db db}))
 
 ;;;; Send message
 (fx/defn update-message-status
@@ -299,7 +204,3 @@
 (fx/defn send-messages
   [{:keys [db now] :as cofx} messages]
   (protocol/send-chat-messages cofx messages))
-
-(fx/defn toggle-expand-message
-  [{:keys [db]} chat-id message-id]
-  {:db (update-in db [:messages chat-id message-id :expanded?] not)})

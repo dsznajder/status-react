@@ -13,7 +13,6 @@
 (defonce label (reagent/atom ""))
 
 (defn before-reload []
-  (println "before reload")
   (re-frame/clear-subscription-cache!))
 
 (defn reload []
