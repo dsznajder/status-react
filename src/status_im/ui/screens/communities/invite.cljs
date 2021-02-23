@@ -67,6 +67,6 @@
                                        (zero? (count selected)))
                         :type     :secondary
                         :on-press #(>evt [(if can-manage-users?
-                                            ::communities/share-community-confirmation-pressed
+                                            ::communities/invite-people-confirmation-pressed
                                             ::communities/share-community-confirmation-pressed) @user-pk selected])}
             (i18n/label (if can-manage-users? :t/invite :t/share))]}]]))))

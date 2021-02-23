@@ -184,13 +184,14 @@
   [cofx user-pk contacts]
   (let [community-id (fetch-community-id-input cofx)
         pks (conj contacts user-pk)]
-    {::json-rpc/call [{:method     "wakuext_inviteUsersToCommunity"
-                       :params     [{:communityId community-id
-                                     :users pks}]
-                       :on-success #(re-frame/dispatch [::people-invited %])
-                       :on-error   #(do
-                                      (log/error "failed to invite-user community" %)
-                                      (re-frame/dispatch [::failed-to-invite-people %]))}]}))
+    (when (seq pks)
+      {::json-rpc/call [{:method     "wakuext_inviteUsersToCommunity"
+                         :params     [{:communityId community-id
+                                       :users pks}]
+                         :on-success #(re-frame/dispatch [::people-invited %])
+                         :on-error   #(do
+                                        (log/error "failed to invite-user community" %)
+                                        (re-frame/dispatch [::failed-to-invite-people %]))}]})))
 (fx/defn share-community
   {:events [::share-community-confirmation-pressed]}
   [cofx user-pk contacts]
@@ -198,7 +199,7 @@
         pks (if (seq user-pk)
               (conj contacts user-pk)
               contacts)]
-    (when (seq contacts)
+    (when (seq pks)
       {::json-rpc/call [{:method     "wakuext_shareCommunity"
                          :params     [{:communityId community-id
                                        :users pks}]

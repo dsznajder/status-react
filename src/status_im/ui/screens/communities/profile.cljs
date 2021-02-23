@@ -74,7 +74,8 @@
                        :icon     :main-icons/arrow-left
                        :title    (i18n/label :t/leave-community)
                        :on-press #(>evt [::communities/leave community-id])}]
-       (when admin
+       ;; Disable as not implemented yet
+       (when false
          [quo/list-item {:theme    :negative
                          :icon     :main-icons/delete
                          :title    (i18n/label :t/delete)
